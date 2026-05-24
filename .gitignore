@@ -70,3 +70,5 @@ out/
 frontend/dist/
 frontend/.vite/
 *.tsbuildinfo
+.vercel
+.env*.local
