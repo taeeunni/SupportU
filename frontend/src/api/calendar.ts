@@ -1,17 +1,24 @@
-import { apiClient } from './client';
+﻿import { apiClient } from './client';
 
 export interface CalendarEvent {
-    cid: number;
+    cid: string;
     policyId: string;
     title: string;
-    org: string;
-    category: string;
-    applyStatus: string;
     eventStartAt: string;
     eventEndAt: string;
-    reminderAt: string;
-    googleEventId: string | null;
-    googleEventLink: string | null;
+    org: string;
+    applyStatus: string;
+}
+
+export interface DeleteCalendarEventResponse {
+    deleted: boolean;
+}
+
+export type CalendarApplyStatus = 'apply_now' | 'applied' | 'benefited';
+
+export interface UpdateCalendarEventStatusRequest {
+    cid: string;
+    applyStatus: CalendarApplyStatus;
 }
 
 export async function fetchCalendarEvents(): Promise<CalendarEvent[]> {
@@ -24,6 +31,13 @@ export async function createCalendarEventFromPolicy(
     return apiClient.post<CalendarEvent>(`/calendar/events/from-policy/${policyId}`);
 }
 
-export async function deleteCalendarEvent(cid: number): Promise<void> {
-    await apiClient.delete(`/calendar/events/${cid}`);
+export async function deleteCalendarEvent(cid: string): Promise<DeleteCalendarEventResponse> {
+    return apiClient.delete<DeleteCalendarEventResponse>(`/calendar/events/${cid}`);
+}
+
+export async function updateCalendarEventStatus({
+    cid,
+    applyStatus,
+}: UpdateCalendarEventStatusRequest): Promise<CalendarEvent> {
+    return apiClient.put<CalendarEvent>(`/calendar/events/${cid}/status`, { applyStatus });
 }

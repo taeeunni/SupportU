@@ -1,270 +1,120 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import type { Policy } from "../../api/types";
-import { usePolicies, usePolicyDetail, useTogglePolicyBookmark } from "../../api/queries/usePolicyQueries";
-import { useCreateCalendarEventFromPolicy } from "../../api/queries/useCalendarQueries";
+import { useRecommendedPolicies, useTogglePolicyBookmark } from "../../api/queries/usePolicyQueries";
 import { usePolicyFiltersStore } from "../../stores/usePolicyFiltersStore";
 import { P } from "./common/Typography";
 import { Spinner } from "./common/Spinner";
-import { ErrorMessage } from "./common/ErrorMessage";
 import { getCategoryStyle, getDeadlineColor } from "../../constants/categories";
+import { PolicyDetailSidePanel } from "./common/PolicyDetailSidePanel";
 
 const categoryColor = {
-  Housing: { bg: getCategoryStyle("Housing").bg, text: getCategoryStyle("Housing").text },
-  Jobs: { bg: getCategoryStyle("Jobs").bg, text: getCategoryStyle("Jobs").text },
-  Welfare: { bg: getCategoryStyle("Welfare").bg, text: getCategoryStyle("Welfare").text },
+  주거: { bg: getCategoryStyle("주거").bg, text: getCategoryStyle("주거").text },
+  일자리: { bg: getCategoryStyle("일자리").bg, text: getCategoryStyle("일자리").text },
+  복지: { bg: getCategoryStyle("복지").bg, text: getCategoryStyle("복지").text },
 };
 
 const deadlineColor = getDeadlineColor;
-
-/* ─────────────────────────── Policy Detail Side Panel ─────────────────────────── */
-
-function PolicyDetailSidePanel({
-                                 policy,
-                                 onClose,
-                               }: {
-  policy: Policy;
-  onClose: () => void;
-}) {
-  const [applied, setApplied] = useState(false);
-  const { data: details } = usePolicyDetail(policy.id);
-  const createCalendarEventMutation = useCreateCalendarEventFromPolicy();
-
-  const handleApply = () => {
-    createCalendarEventMutation.mutate(policy.id, {
-      onSuccess: () => {
-        setApplied(true);
-        toast.success("Google Calendar에 일정이 등록되었습니다.");
-        setTimeout(() => setApplied(false), 3000);
-      },
-      onError: () => {
-        toast.error("일정 등록에 실패했습니다.");
-      },
-    });
-  };
-
-  const categoryBg: Record<string, string> = {
-    Housing: getCategoryStyle("Housing").bg,
-    Jobs: getCategoryStyle("Jobs").bg,
-    Welfare: getCategoryStyle("Welfare").bg,
-  };
-
-  if (!details) return null;
-
-  return (
-      <>
-        {/* Overlay */}
-        <div
-            className="fixed inset-0 z-50 transition-opacity duration-300"
-            style={{ backgroundColor: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)" }}
-            onClick={onClose}
-        />
-
-        {/* Side Panel */}
-        <div
-            className="fixed top-0 right-0 bottom-0 z-50 bg-white overflow-y-auto animate-slide-in"
-            style={{
-              width: "50%",
-              boxShadow: "-4px 0 24px rgba(0,0,0,0.15)",
-              animation: "slideIn 0.3s ease-out",
-            }}
-        >
-          {/* Header */}
-          <div
-              className="sticky top-0 z-10 px-8 py-5 flex items-center justify-between border-b"
-              style={{ backgroundColor: "rgba(255,255,255,0.95)", backdropFilter: "blur(8px)", borderColor: "#e9efed" }}
-          >
-            <P style={{ fontSize: 18, fontWeight: 700, color: "#171d1c" }}>공고 상세</P>
-            <button
-                onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 transition-colors"
-                style={{ background: "none", border: "none", cursor: "pointer" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M1 1L13 13M13 1L1 13" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="px-8 py-8 pb-32">
-            {/* Policy Header */}
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                <span
-                    className="px-2.5 py-1 rounded text-xs"
-                    style={{ backgroundColor: categoryColor[policy.category].bg, color: categoryColor[policy.category].text, fontFamily: "Pretendard, sans-serif", fontWeight: 600 }}
-                >
-                  {policy.categoryKr}
-                </span>
-                  <P style={{ fontSize: 13, color: policy.deadline === "상시" ? "#006a63" : "#ba1a1a", fontWeight: 700 }}>{policy.deadline}</P>
-                </div>
-                <h2 style={{ fontFamily: "Pretendard, sans-serif", fontWeight: 700, fontSize: 26, color: "#171d1c", margin: "0 0 4px 0" }}>
-                  {policy.title}
-                </h2>
-                <P style={{ fontSize: 15, color: "#3c4947" }}>{policy.org}</P>
-              </div>
-              <div
-                  className="flex flex-col items-end gap-1"
-                  style={{ backgroundColor: categoryBg[policy.category] || "#f1f5f9", borderRadius: 12, padding: "12px 16px" }}
-              >
-                <P style={{ fontSize: 12, color: "#3c4947" }}>지원 규모</P>
-                <P style={{ fontSize: 18, color: "#006a63", fontWeight: 700 }}>{policy.support}</P>
-              </div>
-            </div>
-
-            {/* Overview Card */}
-            <div
-                className="rounded-2xl p-6 mb-6"
-                style={{ border: "1px solid rgba(79,209,197,0.3)", background: "rgba(245,251,248,0.5)" }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                  <circle cx="9" cy="9" r="8" stroke="#006A63" strokeWidth="1.5" />
-                  <path d="M9 5V9.5L12 11" stroke="#006A63" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                <P style={{ fontSize: 16, color: "#006a63", fontWeight: 700 }}>지원 개요</P>
-              </div>
-              <P style={{ fontSize: 15, color: "#3c4947", lineHeight: 1.7 }}>{details.fullDesc}</P>
-              <button
-                  className="flex items-center gap-2 mt-4 px-4 py-2 rounded-lg transition-all hover:bg-slate-100"
-                  style={{ fontFamily: "Pretendard, sans-serif", fontSize: 14, color: "#006a63", fontWeight: 600, background: "white", border: "1.5px solid rgba(79,209,197,0.4)", cursor: "pointer" }}
-                  onClick={() => window.open(`https://example.com/policy/${policy.id}`, '_blank')}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M14 9V13C14 13.5523 13.5523 14 13 14H3C2.44772 14 2 13.5523 2 13V3C2 2.44772 2.44772 2 3 2H7" stroke="#006a63" strokeWidth="1.3" strokeLinecap="round"/>
-                  <path d="M10 2H14V6M14 2L7 9" stroke="#006a63" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                원본 공고 보러가기
-              </button>
-            </div>
-
-            {/* Benefits Summary */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between pb-3 mb-4 border-b" style={{ borderColor: "rgba(187,201,199,0.3)" }}>
-                <h3 style={{ fontFamily: "Pretendard, sans-serif", fontWeight: 700, fontSize: 20, color: "#171d1c", margin: 0 }}>지원 혜택 정리</h3>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {details.benefits.map((benefit, idx) => (
-                    <div
-                        key={idx}
-                        className="flex items-center gap-4 p-4 rounded-xl"
-                        style={{ backgroundColor: "rgba(245,251,248,0.5)", border: "1px solid rgba(187,201,199,0.3)" }}
-                    >
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#006a63" }}>
-                        <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
-                          <path d="M1 5L4.5 8.5L11 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </div>
-                      <P style={{ fontSize: 15, color: "#171d1c", fontWeight: 500 }}>{benefit}</P>
-                    </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Sticky Bottom CTA */}
-          <div
-              className="fixed bottom-0 right-0 px-8 py-6 flex flex-col gap-3"
-              style={{ width: "50%", backgroundColor: "rgba(255,255,255,0.95)", backdropFilter: "blur(10px)", borderTop: "1px solid #e9efed" }}
-          >
-            {applied ? (
-                <div
-                    className="h-14 rounded-xl flex items-center justify-center gap-2"
-                    style={{ backgroundColor: "#f0fdf4", border: "1px solid #16a34a" }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <circle cx="10" cy="10" r="9" fill="#16a34a" />
-                    <path d="M6 10L9 13L14 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <P style={{ fontSize: 16, color: "#16a34a", fontWeight: 700 }}>일정이 등록되었습니다!</P>
-                </div>
-            ) : (
-                <button
-                    className="h-14 rounded-xl flex items-center justify-center w-full gap-2 transition-all hover:opacity-90 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: "#006a63", boxShadow: "0 8px 10px rgba(0,106,99,0.25)", fontFamily: "Pretendard, sans-serif", fontSize: 17, fontWeight: 700, color: "white", border: "none", cursor: createCalendarEventMutation.isPending ? "not-allowed" : "pointer" }}
-                    onClick={handleApply}
-                    disabled={createCalendarEventMutation.isPending}
-                >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <rect x="2" y="3" width="16" height="15" rx="2" stroke="white" strokeWidth="1.5" />
-                    <path d="M6 1V5M14 1V5M2 8H18" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                    <path d="M6 12H10M6 15H8" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                  {createCalendarEventMutation.isPending ? "일정 등록 중..." : "지원 일정 관리하기"}
-                </button>
-            )}
-            <div className="flex items-center justify-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <circle cx="8" cy="8" r="7" stroke="rgba(60,73,71,0.6)" strokeWidth="1.2" />
-                <path d="M8 5V8.5L10.5 10" stroke="rgba(60,73,71,0.6)" strokeWidth="1.2" strokeLinecap="round" />
-              </svg>
-              <P style={{ fontSize: 13, color: "rgba(60,73,71,0.8)" }}>AI 에이전트가 일정과 필수 서류를 자동으로 정리해 드려요</P>
-            </div>
-          </div>
-
-          <style>{`
-          @keyframes slideIn {
-            from {
-              transform: translateX(100%);
-            }
-            to {
-              transform: translateX(0);
-            }
-          }
-        `}</style>
-        </div>
-      </>
-  );
-}
 
 interface PolicyListPageProps {
   onNavigate: (page: string, id?: string) => void;
 }
 
+function EmptyPoliciesState({ onNavigate }: Pick<PolicyListPageProps, "onNavigate">) {
+  return (
+      <div className="min-h-screen pt-16" style={{ backgroundColor: "#f5fbf8" }}>
+        <main className="max-w-[1280px] mx-auto px-8 py-10">
+          <div
+              className="flex min-h-[520px] flex-col items-center justify-center gap-5 rounded-2xl bg-white px-6 text-center"
+              style={{
+                border: "1px solid rgba(187,201,199,0.4)",
+                boxShadow: "0 8px 24px -4px rgba(79,209,197,0.06)",
+              }}
+          >
+            <div
+                className="flex h-16 w-16 items-center justify-center rounded-full"
+                style={{ backgroundColor: "rgba(79,209,197,0.16)" }}
+            >
+              <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+                <path d="M8 7.5H22C23.1046 7.5 24 8.39543 24 9.5V24L15 19.5L6 24V9.5C6 8.39543 6.89543 7.5 8 7.5Z" stroke="#006a63" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M11 12.5H19M11 16H17" stroke="#006a63" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-2">
+              <h1 style={{ fontFamily: "Pretendard, sans-serif", fontWeight: 700, fontSize: 28, color: "#171d1c", margin: 0 }}>
+                내 조건에 맞는 공고가 없어요
+              </h1>
+              <P style={{ fontSize: 15, color: "#64748b" }}>
+                마이페이지에서 내 정보를 확인하고 조건을 다시 조정해보세요.
+              </P>
+            </div>
+            <button
+                onClick={() => onNavigate("mypage")}
+                className="mt-2 rounded-xl px-6 py-3 transition-all hover:opacity-90"
+                style={{
+                  fontFamily: "Pretendard, sans-serif",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  backgroundColor: "#006a63",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+            >
+              마이페이지로 이동
+            </button>
+          </div>
+        </main>
+      </div>
+  );
+}
+
 export function PolicyListPage({ onNavigate }: PolicyListPageProps) {
-  const { data: policies = [], isLoading, error, refetch } = usePolicies();
-  const toggleBookmarkMutation = useTogglePolicyBookmark();
-  // 필터/정렬은 Zustand store에서 가져와 페이지 간 이동 시에도 유지
   const { category: activeFilter, setCategory: setActiveFilter, sort, setSort } = usePolicyFiltersStore();
+  const { data: recommendedPolicies = [], isLoading, error } = useRecommendedPolicies();
+  const toggleBookmarkMutation = useTogglePolicyBookmark();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [detailPolicy, setDetailPolicy] = useState<Policy | null>(null);
+  const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
+  const detailPolicyId = searchParams.get("detail");
 
-  // 북마크 상태는 서버 데이터에서 직접 파생 - 더 이상 별도 state 불필요
-  const bookmarks = new Set(policies.filter((p) => p.bookmarked).map((p) => p.id));
+  const filteredPolicies = activeFilter === "전체"
+      ? recommendedPolicies
+      : recommendedPolicies.filter((p) => p.categoryKr === activeFilter);
 
-  const filtered = policies.filter((p) => {
-    if (activeFilter === "전체") return true;
-    if (activeFilter === "주거") return p.category === "Housing";
-    if (activeFilter === "일자리") return p.category === "Jobs";
-    if (activeFilter === "복지") return p.category === "Welfare";
-    return true;
-  });
+  const bookmarks = new Set(filteredPolicies.filter((p) => p.bookmarked).map((p) => p.id));
 
-  // 정렬 적용
-  const sorted = [...filtered].sort((a, b) => {
-    if (sort === "마감일 임박순") {
-      // 상시는 맨 뒤로
-      if (a.deadline === "상시" && b.deadline !== "상시") return 1;
-      if (b.deadline === "상시" && a.deadline !== "상시") return -1;
-      if (a.deadline === "상시" && b.deadline === "상시") return 0;
+  const sorted = sort === "최신순"
+      ? [...filteredPolicies].reverse()
+      : filteredPolicies;
 
-      // D-숫자 비교 (작은 숫자가 먼저)
-      const aNum = parseInt(a.deadline.replace("D-", ""));
-      const bNum = parseInt(b.deadline.replace("D-", ""));
-      return aNum - bNum;
-    } else if (sort === "최신순") {
-      // ID가 큰 것이 최신 (간단한 예시)
-      return parseInt(b.id) - parseInt(a.id);
-    }
-    return 0;
-  });
+  useEffect(() => {
+    if (!detailPolicyId) return;
+    const policy = recommendedPolicies.find((item) => item.id === detailPolicyId);
+    if (policy) setDetailPolicy(policy);
+  }, [detailPolicyId, recommendedPolicies]);
 
-  const toggleBookmark = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const openDetailPolicy = (policy: Policy) => {
+    setDetailPolicy(policy);
+    const next = new URLSearchParams(searchParams);
+    next.set("detail", policy.id);
+    setSearchParams(next, { replace: true });
+  };
+
+  const closeDetailPolicy = () => {
+    setDetailPolicy(null);
+    if (!detailPolicyId) return;
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("detail");
+    setSearchParams(next, { replace: true });
+  };
+
+  const toggleBookmark = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
 
     toggleBookmarkMutation.mutate(
         {
@@ -272,7 +122,31 @@ export function PolicyListPage({ onNavigate }: PolicyListPageProps) {
           bookmarked: bookmarks.has(id),
         },
         {
+          onSuccess: () => toast.success(bookmarks.has(id) ? "스크랩을 취소했습니다." : "스크랩함에 추가했습니다."),
           onError: () => toast.error("북마크 변경에 실패했습니다."),
+        },
+    );
+  };
+
+  const requestToggleBookmarkFromDetail = (id: string) => {
+    if (bookmarks.has(id)) {
+      setRemoveConfirmId(id);
+      return;
+    }
+
+    toggleBookmark(id);
+  };
+
+  const confirmRemoveBookmark = (id: string) => {
+    toggleBookmarkMutation.mutate(
+        {
+          id,
+          bookmarked: true,
+        },
+        {
+          onSuccess: () => toast.success("스크랩을 취소했습니다."),
+          onError: () => toast.error("북마크 변경에 실패했습니다."),
+          onSettled: () => setRemoveConfirmId(null),
         },
     );
   };
@@ -285,12 +159,8 @@ export function PolicyListPage({ onNavigate }: PolicyListPageProps) {
     );
   }
 
-  if (error) {
-    return (
-        <div className="min-h-screen pt-16" style={{ backgroundColor: "#f5fbf8" }}>
-          <ErrorMessage error={error} onRetry={refetch} />
-        </div>
-    );
+  if (error || (!isLoading && recommendedPolicies.length === 0)) {
+    return <EmptyPoliciesState onNavigate={onNavigate} />;
   }
 
   return (
@@ -392,42 +262,39 @@ export function PolicyListPage({ onNavigate }: PolicyListPageProps) {
               </div>
               <P style={{ fontSize: 18, color: "#171d1c", fontWeight: 500 }}>
                 회원님 프로필 기준 추천 공고{" "}
-                <span style={{ color: "#006a63", fontWeight: 700 }}>24건</span>
+                <span style={{ color: "#006a63", fontWeight: 700 }}>{recommendedPolicies.length}건</span>
               </P>
             </div>
-            <span
-                className="px-3 py-1.5 rounded-full text-xs"
-                style={{ backgroundColor: "rgba(79,209,197,0.2)", color: "#006a63", fontFamily: "Pretendard, sans-serif", fontWeight: 600, border: "1px solid rgba(79,209,197,0.2)" }}
-            >
-            AI가 매칭했어요
-          </span>
           </div>
 
           {/* Policy Grid */}
           <div className="grid grid-cols-2 gap-6 pb-12">
-            {sorted.map((policy) => (
+            {sorted.map((policy) => {
+              const catStyle = getCategoryStyle(policy.category);
+              const isBookmarked = bookmarks.has(policy.id);
+              return (
                 <div
                     key={policy.id}
                     className="bg-white rounded-2xl p-7 cursor-pointer hover:shadow-md transition-all border relative"
                     style={{ border: "1px solid rgba(187,201,199,0.4)", boxShadow: "0 8px 24px -4px rgba(79,209,197,0.06)" }}
-                    onClick={() => setDetailPolicy(policy)}
+                    onClick={() => openDetailPolicy(policy)}
                 >
                   {/* Gradient corner */}
                   <div
                       className="absolute top-0 right-0 w-32 h-32 rounded-bl-full opacity-50"
-                      style={{ background: `linear-gradient(135deg, ${categoryColor[policy.category]?.bg || "#f1f5f9"} 0%, transparent 100%)` }}
+                      style={{ background: `linear-gradient(135deg, ${catStyle.bg} 0%, transparent 100%)` }}
                   />
 
                   <div className="relative">
                     {/* Top Row */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
-                    <span
-                        className="px-2.5 py-1 rounded text-xs"
-                        style={{ backgroundColor: "#e3e9e7", color: "#3c4947", fontFamily: "Pretendard, sans-serif", fontWeight: 500 }}
-                    >
-                      {policy.categoryKr}
-                    </span>
+                        <span
+                            className="px-2.5 py-1 rounded text-xs"
+                            style={{ backgroundColor: catStyle.bg, color: catStyle.text, fontFamily: "Pretendard, sans-serif", fontWeight: 500 }}
+                        >
+                          {policy.categoryKr}
+                        </span>
                       </div>
                       <button
                           onClick={(e) => toggleBookmark(policy.id, e)}
@@ -437,8 +304,8 @@ export function PolicyListPage({ onNavigate }: PolicyListPageProps) {
                         <svg width="18" height="20" viewBox="0 0 18 20" fill="none">
                           <path
                               d="M2 2H16C16.552 2 17 2.448 17 3V19L9 15L1 19V3C1 2.448 1.448 2 2 2Z"
-                              stroke={bookmarks.has(policy.id) ? "#006a63" : "#6C7A77"}
-                              fill={bookmarks.has(policy.id) ? "#006a63" : "none"}
+                              stroke={isBookmarked ? "#006a63" : "#6C7A77"}
+                              fill={isBookmarked ? "#006a63" : "none"}
                               strokeWidth="1.375"
                           />
                         </svg>
@@ -459,14 +326,15 @@ export function PolicyListPage({ onNavigate }: PolicyListPageProps) {
                       <button
                           className="text-base font-medium transition-colors hover:opacity-70"
                           style={{ fontFamily: "Pretendard, sans-serif", color: "#006a63", background: "none", border: "none", cursor: "pointer" }}
-                          onClick={(e) => { e.stopPropagation(); setDetailPolicy(policy); }}
+                          onClick={(e) => { e.stopPropagation(); openDetailPolicy(policy); }}
                       >
                         상세보기
                       </button>
                     </div>
                   </div>
                 </div>
-            ))}
+              );
+            })}
           </div>
         </main>
 
@@ -474,9 +342,59 @@ export function PolicyListPage({ onNavigate }: PolicyListPageProps) {
         {detailPolicy && (
             <PolicyDetailSidePanel
                 policy={detailPolicy}
-                onClose={() => setDetailPolicy(null)}
+                onClose={closeDetailPolicy}
+                isBookmarked={bookmarks.has(detailPolicy.id)}
+                onToggleBookmark={requestToggleBookmarkFromDetail}
             />
         )}
+
+        {removeConfirmId && (() => {
+          const policy = recommendedPolicies.find((item) => item.id === removeConfirmId);
+
+          return (
+              <div
+                  className="fixed inset-0 z-[60] flex items-center justify-center"
+                  style={{ backgroundColor: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+                  onClick={() => setRemoveConfirmId(null)}
+              >
+                <div
+                    className="bg-white rounded-2xl p-8 flex flex-col items-center gap-5"
+                    style={{ width: 360, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(0,106,99,0.08)" }}>
+                    <svg width="24" height="26" viewBox="0 0 18 20" fill="none">
+                      <path d="M2 2H16C16.552 2 17 2.448 17 3V19L9 15L1 19V3C1 2.448 1.448 2 2 2Z" stroke="#006a63" fill="#006a63" strokeWidth="1.375" />
+                    </svg>
+                  </div>
+                  <div className="text-center flex flex-col gap-2">
+                    <h3 style={{ fontFamily: "Pretendard, sans-serif", fontSize: 22, fontWeight: 700, color: "#171d1c", margin: 0 }}>
+                      북마크를 취소할까요?
+                    </h3>
+                    <P style={{ fontSize: 14, color: "#64748b", lineHeight: 1.6 }}>
+                      {policy?.title ?? "선택한 공고"}를 스크랩 목록에서 제거합니다.
+                    </P>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 w-full">
+                    <button
+                        className="h-12 rounded-xl transition-all hover:bg-slate-50"
+                        style={{ border: "1px solid #cbd5e1", background: "white", color: "#3c4947", fontFamily: "Pretendard, sans-serif", fontWeight: 700, cursor: "pointer" }}
+                        onClick={() => setRemoveConfirmId(null)}
+                    >
+                      아니요
+                    </button>
+                    <button
+                        className="h-12 rounded-xl transition-all hover:opacity-90"
+                        style={{ border: "none", background: "#006a63", color: "white", fontFamily: "Pretendard, sans-serif", fontWeight: 700, cursor: "pointer" }}
+                        onClick={() => confirmRemoveBookmark(removeConfirmId)}
+                    >
+                      예, 삭제할게요
+                    </button>
+                  </div>
+                </div>
+              </div>
+          );
+        })()}
       </div>
   );
 }

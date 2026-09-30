@@ -12,7 +12,6 @@ from langgraph.graph import StateGraph, START, END
 # 0. 환경 변수 및 API 설정
 load_dotenv()
 os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_AUTH_TOKEN", "키_오류")
-os.environ["ANTHROPIC_BASE_URL"] = "https://factchat-cloud.mindlogic.ai/v1/gateway/claude"
 
 # ==========================================
 # 1. State

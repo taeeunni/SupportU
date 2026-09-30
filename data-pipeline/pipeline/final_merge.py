@@ -65,11 +65,66 @@ def merge_schema_files(schema_files: list[dict], output_path):
         df["data_scope"] = scope
         dfs.append(df)
 
+        print(f"[병합 입력] {scope}: {path} / {len(df)}개")
+
     merged_df = pd.concat(dfs, ignore_index=True)
 
-    # 중복 제거
+    print("\n[중복 제거 전]")
+    print("전체 개수:", len(merged_df))
+
     if "policy_id" in merged_df.columns:
-        merged_df = merged_df.drop_duplicates(subset=["policy_id"], keep="first")
+        merged_df["policy_id"] = merged_df["policy_id"].astype("string").str.strip()
+
+        has_policy_id = merged_df["policy_id"].notna() & (merged_df["policy_id"] != "")
+
+        with_policy_id = merged_df[has_policy_id].copy()
+        without_policy_id = merged_df[~has_policy_id].copy()
+
+        print("policy_id 있음:", len(with_policy_id))
+        print("policy_id 없음:", len(without_policy_id))
+
+        before_with_id = len(with_policy_id)
+        with_policy_id = with_policy_id.drop_duplicates(
+            subset=["policy_id"],
+            keep="first",
+        )
+        print("policy_id 기준 중복 제거:", before_with_id - len(with_policy_id), "개")
+
+        if not without_policy_id.empty:
+            fallback_cols = []
+
+            if "detail_url" in without_policy_id.columns:
+                fallback_cols.append("detail_url")
+
+            if "policy_title" in without_policy_id.columns:
+                fallback_cols.append("policy_title")
+
+            if fallback_cols:
+                for col in fallback_cols:
+                    without_policy_id[col] = without_policy_id[col].astype("string").str.strip()
+
+                before_without_id = len(without_policy_id)
+                without_policy_id = without_policy_id.drop_duplicates(
+                    subset=fallback_cols,
+                    keep="first",
+                )
+                print(
+                    "policy_id 없는 행 보조 중복 제거:",
+                    before_without_id - len(without_policy_id),
+                    "개",
+                    "/ 기준:",
+                    fallback_cols,
+                )
+            else:
+                print("policy_id 없는 행 보조 중복 제거 건너뜀: detail_url/policy_title 없음")
+
+        merged_df = pd.concat([with_policy_id, without_policy_id], ignore_index=True)
+
+    else:
+        print("policy_id 컬럼 없음: 중복 제거 건너뜀")
+
+    print("\n[중복 제거 후]")
+    print("전체 개수:", len(merged_df))
 
     # 누락 컬럼 생성
     for col in FINAL_COLUMNS:
@@ -92,10 +147,16 @@ def merge_schema_files(schema_files: list[dict], output_path):
     print("\n[스키마 카테고리 분포]")
     print(merged_df["schema_category"].value_counts(dropna=False))
 
+    print("\n[policy_id 결측 확인]")
+    print("policy_id 없음:", merged_df["policy_id"].isna().sum())
+    print("policy_id 빈 문자열:", (merged_df["policy_id"].astype(str).str.strip() == "").sum())
+
     print("\n[확인용]")
     check_cols = [
         "data_scope",
+        "policy_id",
         "policy_title",
+        "detail_url",
         "source_category",
         "schema_category",
         "amin",

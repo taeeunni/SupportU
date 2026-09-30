@@ -28,9 +28,6 @@ public class Policy {
     @Column(name = "source_name")
     private String sourceName;
 
-    @Column(name = "summary")
-    private String summary;
-
     @Column(name = "support_content")
     private String supportContent;
 

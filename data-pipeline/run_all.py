@@ -2,6 +2,7 @@ import subprocess
 import sys
 
 from config import SOURCES, FINAL_MERGED_SCHEMA
+from pipeline.sync_db import sync_to_supabase
 from pipeline.classify import classify_need_check_file
 from pipeline.merge import merge_candidates
 from pipeline.extract_schema import extract_schema_from_file
@@ -131,6 +132,15 @@ def main():
     print(FINAL_MERGED_SCHEMA)
 
     print("\n최종 병합 개수:", len(merged_df))
+
+    print("\n" + "=" * 60)
+    print("Supabase 동기화 시작")
+    print("=" * 60)
+
+    try:
+        sync_to_supabase()
+    except ValueError as e:
+        print(f"[건너뜀] Supabase 환경변수 미설정: {e}")
 
 
 if __name__ == "__main__":

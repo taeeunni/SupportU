@@ -69,7 +69,9 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
+    "@types/json-bigint": "^1.0.4",
     "@vitejs/plugin-react": "4.7.0",
+    "json-bigint": "^1.0.0",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5"
   },

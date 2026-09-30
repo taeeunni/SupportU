@@ -16,12 +16,13 @@ const GENDER_API_VALUE: Record<string, string> = {
   여성: "F",
   "선택 안함": "NONE",
 };
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.com$/i;
 
 export function SignupPage({ onComplete, onCancel }: SignupPageProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const saveProfileMutation = useSaveProfile();
   const [formData, setFormData] = useState({
-    userId: "",
+    email: "",
     age: 25,
     gender: "선택 안함",
     region: "",
@@ -37,6 +38,7 @@ export function SignupPage({ onComplete, onCancel }: SignupPageProps) {
   const totalSteps = TOTAL_STEPS;
   const isSubmitting = saveProfileMutation.isPending;
   const submitError = saveProfileMutation.error?.message ?? null;
+  const isEmailValid = EMAIL_PATTERN.test(formData.email.trim());
 
   const handleNext = () => {
     if (currentStep < totalSteps) {
@@ -92,7 +94,7 @@ export function SignupPage({ onComplete, onCancel }: SignupPageProps) {
 
   const isStepValid = () => {
     if (currentStep === 1) {
-      return formData.userId.length > 0 && formData.age > 0;
+      return isEmailValid && formData.age > 0;
     }
     if (currentStep === 2) {
       return formData.region && formData.district && formData.education && formData.employment;
@@ -200,19 +202,26 @@ export function SignupPage({ onComplete, onCancel }: SignupPageProps) {
                   <P style={{ fontSize: 15, color: "#64748b" }}>정확한 정보를 입력하면 더 정확한 정책을 추천받을 수 있어요.</P>
                 </div>
 
-                {/* 유저 아이디 */}
+                {/* 이메일 */}
                 <div>
-                  <P style={{ fontSize: 14, fontWeight: 600, color: "#3c4947", marginBottom: 10 }}>유저 아이디</P>
+                  <P style={{ fontSize: 14, fontWeight: 600, color: "#3c4947", marginBottom: 10 }}>이메일</P>
                   <input
-                    type="text"
-                    value={formData.userId}
-                    onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
-                    placeholder="사용하실 아이디를 입력하세요"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="example@email.com"
+                    pattern="^[^\s@]+@[^\s@]+\.com$"
+                    title="example@email.com 형식으로 입력해주세요"
                     className="w-full px-5 py-4 rounded-xl border transition-all"
                     style={{ fontFamily: "Pretendard, sans-serif", fontSize: 15, borderColor: "#e9efed", outline: "none" }}
                     onFocus={(e) => (e.target.style.borderColor = "#006a63")}
                     onBlur={(e) => (e.target.style.borderColor = "#e9efed")}
                   />
+                  {formData.email.length > 0 && !isEmailValid && (
+                    <P style={{ fontSize: 13, color: "#dc2626", marginTop: 8 }}>
+                      example@email.com 형식으로 입력해주세요.
+                    </P>
+                  )}
                 </div>
 
                 {/* 나이 */}

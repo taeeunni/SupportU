@@ -7,4 +7,10 @@ import java.util.List;
 public interface PolicyDocumentRepository extends JpaRepository<PolicyDocument, Long> {
 
     List<PolicyDocument> findTop10ByOrderByCreatedAtDesc();
+
+    List<PolicyDocument> findByPolicyIdOrderByDocIdAsc(String policyId);
+
+    boolean existsByPolicyId(String policyId);
+
+    void deleteByPolicyId(String policyId);
 }

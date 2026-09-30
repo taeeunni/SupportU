@@ -16,5 +16,5 @@ export async function updateChecklistItem(id: number, done: boolean): Promise<vo
     console.info('[mock] update checklist', id, done);
     return;
   }
-  await apiClient.put(`/checklist/${id}`, { done });
+  await apiClient.put(`/checklist/${id}`, { checked: done });
 }

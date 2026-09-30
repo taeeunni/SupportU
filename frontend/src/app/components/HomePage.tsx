@@ -6,21 +6,64 @@ import { useBenefitSummary } from "../../api/queries/useBenefitQueries";
 import { useRecommendedPolicies } from "../../api/queries/usePolicyQueries";
 import { useChecklist, useToggleChecklistItem } from "../../api/queries/useChecklistQueries";
 import { P } from "./common/Typography";
-import { CATEGORIES, getCategoryStyle } from "../../constants/categories";
+import { getCategoryStyle } from "../../constants/categories";
 
 interface HomePageProps {
   onNavigate: (page: string, id?: string) => void;
+}
+
+function EmptyRecommendedPolicies({ onNavigate }: Pick<HomePageProps, "onNavigate">) {
+  return (
+      <div
+          className="flex min-h-60 w-full flex-col items-center justify-center gap-4 rounded-3xl bg-white px-6 py-10 text-center"
+          style={{ border: "1px solid rgba(0,106,99,0.08)" }}
+      >
+        <div
+            className="flex h-14 w-14 items-center justify-center rounded-full"
+            style={{ backgroundColor: "rgba(79,209,197,0.16)" }}
+        >
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <path d="M7.5 6.5H20.5C21.6046 6.5 22.5 7.39543 22.5 8.5V23L14 18.75L5.5 23V8.5C5.5 7.39543 6.39543 6.5 7.5 6.5Z" stroke="#006a63" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M10.5 11.5H17.5M10.5 15H15.5" stroke="#006a63" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+        <div className="flex flex-col gap-2">
+          <P style={{ fontSize: 22, color: "#171d1c", fontWeight: 700 }}>
+            내 조건에 맞는 공고가 없어요
+          </P>
+          <P style={{ fontSize: 15, color: "#64748b" }}>
+            마이페이지에서 내 정보를 확인하고 조건을 다시 조정해보세요.
+          </P>
+        </div>
+        <button
+            onClick={() => onNavigate("mypage")}
+            className="mt-1 rounded-xl px-5 py-3 transition-all hover:opacity-90"
+            style={{
+              fontFamily: "Pretendard, sans-serif",
+              fontSize: 15,
+              fontWeight: 700,
+              backgroundColor: "#006a63",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+            }}
+        >
+          마이페이지로 이동
+        </button>
+      </div>
+  );
 }
 
 export function HomePage({ onNavigate }: HomePageProps) {
   const { data: user } = useAuthUser();
   const { data: profile } = useProfile();
   const { data: benefitSummary, isLoading: isBenefitSummaryLoading } = useBenefitSummary(profile?.uid);
-  const { data: recommendedPolicies = [] } = useRecommendedPolicies();
-  const { data: checklist = [] } = useChecklist();
+  const { data: recommendedPolicies = [], error: recommendedPoliciesError } = useRecommendedPolicies();
+  const { data: checklist = [], isLoading: isChecklistLoading, error: checklistError } = useChecklist();
   const toggleMutation = useToggleChecklistItem();
 
   const [activeFilter, setActiveFilter] = useState("전체");
+  const greetingName = user?.name ?? "청년";
 
   const doneCount = checklist.filter((i) => i.done).length;
   const progress = checklist.length === 0 ? 0 : Math.round((doneCount / checklist.length) * 100);
@@ -40,10 +83,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
   const filteredPolicies =
       activeFilter === "전체"
           ? recommendedPolicies
-          : recommendedPolicies.filter((p) => {
-            const label = (CATEGORIES as Record<string, { label: string }>)[p.category]?.label;
-            return label === activeFilter;
-          });
+          : recommendedPolicies.filter((p) => p.categoryKr === activeFilter);
 
   return (
       <div className="min-h-screen pt-16" style={{ backgroundColor: "#f5fbf8" }}>
@@ -52,7 +92,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
           <div className="flex items-end justify-between">
             <div className="flex flex-col gap-2">
               <h1 style={{ fontFamily: "Pretendard, sans-serif", fontWeight: 700, fontSize: 40, color: "#171d1c", letterSpacing: "-1px", margin: 0 }}>
-                안녕하세요, {user?.name ?? "청년"}님 👋
+                안녕하세요, {greetingName}님 👋
               </h1>
               <P style={{ fontSize: 18, color: "#64748b", margin: 0 }}>오늘도 맞춤 정책을 확인해보세요.</P>
             </div>
@@ -68,55 +108,87 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 <button style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>•••</button>
               </div>
 
-              <div className="flex flex-col gap-2">
-                {checklist.map((item) => (
-                    <div
-                        key={item.id}
-                        className="flex items-center gap-4 p-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors"
-                        onClick={() => toggleItem(item.id, item.done)}
-                    >
-                      <div
-                          className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors"
-                          style={{
-                            backgroundColor: item.done ? "#4fd1c5" : "transparent",
-                            border: item.done ? "2px solid #4fd1c5" : "2px solid #cbd5e1",
-                          }}
-                      >
-                        {item.done && (
-                            <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-                              <path d="M1 4L4.5 7.5L11 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                        )}
-                      </div>
-                      <div className="flex-1 flex items-center justify-between">
-                        <P
-                            style={{
-                              fontSize: 16,
-                              fontWeight: 500,
-                              color: item.done ? "#94a3b8" : "#171d1c",
-                              textDecoration: item.done ? "line-through" : "none",
-                            }}
-                        >
-                          {item.label}
-                        </P>
-                        <div className="flex items-center gap-2">
-                      <span
-                          className="px-2 py-1 rounded text-xs font-bold"
-                          style={{ backgroundColor: item.deadlineBg, color: item.deadlineColor }}
-                      >
-                        {item.deadline}
-                      </span>
-                          <span
-                              className="px-2 py-1 rounded text-xs"
-                              style={{ backgroundColor: item.categoryBg, color: item.categoryColor, fontFamily: "Pretendard, sans-serif" }}
-                          >
-                        {item.category}
-                      </span>
+              {isChecklistLoading ? (
+                  <div className="flex flex-col gap-2">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                        <div key={index} className="flex items-center gap-4 p-3 rounded-xl">
+                          <div className="w-6 h-6 rounded" style={{ backgroundColor: "#f1f5f9" }} />
+                          <div className="flex-1 h-4 rounded" style={{ backgroundColor: "#f1f5f9" }} />
+                          <div className="w-20 h-6 rounded" style={{ backgroundColor: "#f1f5f9" }} />
                         </div>
-                      </div>
-                    </div>
-                ))}
-              </div>
+                    ))}
+                  </div>
+              ) : checklistError ? (
+                  <div
+                      className="flex flex-col items-center justify-center gap-2 rounded-2xl px-5 py-10 text-center"
+                      style={{ backgroundColor: "rgba(186,26,26,0.05)", border: "1px solid rgba(186,26,26,0.12)" }}
+                  >
+                    <P style={{ fontSize: 15, fontWeight: 700, color: "#171d1c" }}>체크리스트를 불러오지 못했어요</P>
+                    <P style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
+                      잠시 후 다시 확인해주세요.
+                    </P>
+                  </div>
+              ) : checklist.length === 0 ? (
+                  <div
+                      className="flex flex-col items-center justify-center gap-2 rounded-2xl px-5 py-10 text-center"
+                      style={{ backgroundColor: "rgba(0,106,99,0.04)", border: "1px solid rgba(0,106,99,0.1)" }}
+                  >
+                    <P style={{ fontSize: 15, fontWeight: 700, color: "#171d1c" }}>이번주 체크리스트가 없어요</P>
+                    <P style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
+                      필요한 서류가 생기면 여기에 표시됩니다.
+                    </P>
+                  </div>
+              ) : (
+                  <div className="flex flex-col gap-2">
+                    {checklist.map((item) => (
+                        <div
+                            key={item.id}
+                            className="flex items-center gap-4 p-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors"
+                            onClick={() => toggleItem(item.id, item.done)}
+                        >
+                          <div
+                              className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors"
+                              style={{
+                                backgroundColor: item.done ? "#4fd1c5" : "transparent",
+                                border: item.done ? "2px solid #4fd1c5" : "2px solid #cbd5e1",
+                              }}
+                          >
+                            {item.done && (
+                                <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
+                                  <path d="M1 4L4.5 7.5L11 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            )}
+                          </div>
+                          <div className="flex-1 flex items-center justify-between">
+                            <P
+                                style={{
+                                  fontSize: 16,
+                                  fontWeight: 500,
+                                  color: item.done ? "#94a3b8" : "#171d1c",
+                                  textDecoration: item.done ? "line-through" : "none",
+                                }}
+                            >
+                              {item.label}
+                            </P>
+                            <div className="flex items-center gap-2">
+                          <span
+                              className="px-2 py-1 rounded text-xs font-bold"
+                              style={{ backgroundColor: item.deadlineBg, color: item.deadlineColor }}
+                          >
+                            {item.deadline}
+                          </span>
+                              <span
+                                  className="px-2 py-1 rounded text-xs"
+                                  style={{ backgroundColor: item.categoryBg, color: item.categoryColor, fontFamily: "Pretendard, sans-serif" }}
+                              >
+                            {item.category}
+                          </span>
+                            </div>
+                          </div>
+                        </div>
+                    ))}
+                  </div>
+              )}
 
               <div className="mt-8 flex flex-col gap-2">
                 <P style={{ fontSize: 13, color: "#64748b", fontWeight: 700 }}>{doneCount}/{checklist.length} 완료</P>
@@ -197,74 +269,70 @@ export function HomePage({ onNavigate }: HomePageProps) {
               </button>
             </div>
 
-            <div className="flex gap-6 overflow-x-auto pb-4">
-              {filteredPolicies.map((policy) => (
-                  <div
-                      key={policy.id}
-                      className="flex-shrink-0 w-80 h-60 bg-white rounded-3xl p-6 flex flex-col justify-between cursor-pointer hover:shadow-md transition-shadow border"
-                      style={{ borderColor: "rgba(0,106,99,0.08)" }}
-                      onClick={() => onNavigate("policy-detail", policy.id)}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        {(() => {
-                          const style = getCategoryStyle(policy.category);
-                          return (
-                              <span
-                                  className="px-2.5 py-1 rounded text-xs font-bold"
-                                  style={{
-                                    backgroundColor: style.bg,
-                                    color: style.text,
-                                    fontFamily: "Pretendard, sans-serif",
-                                  }}
-                              >
-                          {policy.categoryKr}
-                        </span>
-                          );
-                        })()}
-                        <P style={{ fontSize: 10, color: "#cbd5e1", fontWeight: 700, letterSpacing: "0.5px" }}>{policy.region}</P>
+            {recommendedPoliciesError || filteredPolicies.length === 0 ? (
+                <EmptyRecommendedPolicies onNavigate={onNavigate} />
+            ) : (
+                <div className="flex gap-6 overflow-x-auto pb-4">
+                  {filteredPolicies.map((policy) => {
+                    const categoryStyle = getCategoryStyle(policy.category);
+                    const deadlineDays = parseInt(policy.deadline?.replace("D-", "") ?? "", 10);
+                    const deadlineColor = !Number.isNaN(deadlineDays) && deadlineDays <= 3 ? "#ba1a1a" : "#475569";
+                    return (
+                    <div
+                        key={policy.id}
+                        className="flex-shrink-0 w-80 h-60 bg-white rounded-3xl p-6 flex flex-col justify-between cursor-pointer hover:shadow-md transition-shadow border"
+                        style={{ borderColor: "rgba(0,106,99,0.08)" }}
+                        onClick={() => onNavigate("policy-detail", policy.id)}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span
+                              className="px-2.5 py-1 rounded text-xs font-bold"
+                              style={{ backgroundColor: categoryStyle.bg, color: categoryStyle.text, fontFamily: "Pretendard, sans-serif" }}
+                          >
+                            {policy.categoryKr}
+                          </span>
+                          {policy.region && (
+                            <P style={{ fontSize: 10, color: "#cbd5e1", fontWeight: 700, letterSpacing: "0.5px" }}>{policy.region}</P>
+                          )}
+                        </div>
+                        <P style={{ fontSize: 18, color: "#171d1c", fontWeight: 500, marginTop: 8, lineHeight: 1.5 }}>{policy.title}</P>
+                        <P style={{ fontSize: 14, color: "#64748b", marginTop: 6, lineHeight: 1.6 }}>{policy.desc}</P>
                       </div>
-                      <P style={{ fontSize: 18, color: "#171d1c", fontWeight: 500, marginTop: 8, lineHeight: 1.5 }}>{policy.title}</P>
-                      <P style={{ fontSize: 14, color: "#64748b", marginTop: 6, lineHeight: 1.6 }}>{policy.desc}</P>
-                    </div>
 
-                    <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: "#f1f5f9" }}>
-                      <P
-                          style={{
-                            fontSize: 16,
-                            fontWeight: 700,
-                            color: parseInt(policy.deadline.replace("D-", "")) <= 3 ? "#ba1a1a" : "#475569",
-                          }}
-                      >
-                        {policy.deadline}
-                      </P>
-                      <button
-                          className="w-8 h-8 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: "#f8fafc" }}
-                          onClick={(e) => { e.stopPropagation(); onNavigate("policy-detail", policy.id); }}
-                      >
-                        <svg width="12" height="15" viewBox="0 0 12 15" fill="none">
-                          <path d="M2 1H10C10.552 1 11 1.448 11 2V14L6 11L1 14V2C1 1.448 1.448 1 2 1Z" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
+                      <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: "#f1f5f9" }}>
+                        <P style={{ fontSize: 16, fontWeight: 700, color: deadlineColor }}>
+                          {policy.deadline}
+                        </P>
+                        <button
+                            className="w-8 h-8 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: "#f8fafc" }}
+                            onClick={(e) => { e.stopPropagation(); onNavigate("policy-detail", policy.id); }}
+                        >
+                          <svg width="12" height="15" viewBox="0 0 12 15" fill="none">
+                            <path d="M2 1H10C10.552 1 11 1.448 11 2V14L6 11L1 14V2C1 1.448 1.448 1 2 1Z" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
+                    );
+                  })}
+
+                  {/* More card */}
+                  <div
+                      className="flex-shrink-0 w-80 h-60 rounded-3xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors"
+                      style={{ border: "2px dashed #cbd5e1" }}
+                      onClick={() => onNavigate("policies")}
+                  >
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M7 1V13M1 7H13" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <P style={{ fontSize: 16, color: "#64748b" }}>더 많은 정책 찾기</P>
                   </div>
-              ))}
-
-              {/* More card */}
-              <div
-                  className="flex-shrink-0 w-80 h-60 rounded-3xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors"
-                  style={{ border: "2px dashed #cbd5e1" }}
-                  onClick={() => onNavigate("policies")}
-              >
-                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M7 1V13M1 7H13" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
                 </div>
-                <P style={{ fontSize: 16, color: "#64748b" }}>더 많은 정책 찾기</P>
-              </div>
-            </div>
+            )}
           </div>
         </main>
 

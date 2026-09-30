@@ -138,22 +138,46 @@ def effect_worker_node(state):
     uid = state["uid"]
 
     try:
+        # benefited 상태의 이벤트만 추출
+        benefited_events = [
+            event
+            for event in state["calendar_events"]
+            if event.get("apply_status") == "benefited"
+        ]
+
+        # 수혜 완료 정책이 없으면 AI 분석 생략
+        if not benefited_events:
+            return {
+                **state,
+                "effect_summary": {
+                    "total_cash_benefit": "",
+                    "total_cash_amount": 0,
+                    "total_service_benefit": "",
+                    "final_summary": "수혜 완료된 정책이 없습니다."
+                }
+            }
+
+        # benefited 정책 ID만 추출
+        benefited_policy_ids = {
+            event["policy_id"]
+            for event in benefited_events
+            if event.get("policy_id")
+}
+
+        # benefited 정책만 필터링
+        benefited_policies = [
+            policy
+            for policy in state["policies"]
+            if policy["policy_id"] in benefited_policy_ids
+        ]
 
         context_data = {
 
             "user_id": uid,
-
-            "user_profile":
-                state["user_profile"],
-
-            "calendar_events":
-                state["calendar_events"],
-
-            "policies":
-                state["policies"],
-
-            "eligibility_results":
-                state["eligibility_results"]
+            "user_profile": state["user_profile"],
+            "calendar_events": benefited_events,
+            "policies": benefited_policies,
+            "eligibility_results": state["eligibility_results"]
         }
 
         human_msg = f"""

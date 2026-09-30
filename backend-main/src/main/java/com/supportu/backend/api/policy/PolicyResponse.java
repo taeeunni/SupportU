@@ -14,9 +14,9 @@ public record PolicyResponse(
         String deadline,
         String support,
         String desc,
-        int match,
         String region,
-        boolean bookmarked
+        boolean bookmarked,
+        String detailUrl
 ) {
     public static PolicyResponse from(Policy policy) {
         return from(policy, false);
@@ -31,10 +31,10 @@ public record PolicyResponse(
                 toKoreanCategory(policy.getCategory()),
                 toDeadline(policy.getPend()),
                 firstNonBlank(policy.getSupportContent(), "지원내용 확인 필요"),
-                firstNonBlank(policy.getSummary(), "상세 설명 확인 필요"),
-                85,
+                firstNonBlank(policy.getSupportContent(), "지원 내용 확인 필요"),
                 firstNonBlank(policy.getRegion(), "전국"),
-                bookmarked
+                bookmarked,
+                policy.getDetailUrl()
         );
     }
 

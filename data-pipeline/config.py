@@ -19,7 +19,7 @@ TODAY = pd.Timestamp.today().normalize()
 TODAY_STR = TODAY.strftime("%Y_%m_%d")
 
 
-MODEL_NAME = "qwen2.5:7b"
+MODEL_NAME = "qwen2.5:7b" 
 
 
 SOURCES = {

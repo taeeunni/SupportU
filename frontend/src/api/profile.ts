@@ -4,10 +4,26 @@ import type { ProfileRequest, ProfileResponse } from './types';
 const USE_MOCK_AUTH = import.meta.env.VITE_MOCK_AUTH === 'true';
 const MOCK_AUTH_STORAGE_KEY = 'supportu-mock-auth';
 
+const MOCK_PROFILE: ProfileResponse = {
+  uid: 'mock-google-id-12345',
+  createdAt: new Date().toISOString(),
+  age: 26,
+  gender: '남성',
+  city: '서울',
+  scity: '강남구',
+  education: '대학교 재학',
+  employment: '구직 중',
+  disability: false,
+  incomeInteger: 2000000,
+  asset: '5000만원 미만',
+  preferredCategories: ['일자리', '주거'],
+};
+
 /** 내 프로필 조회 */
 export async function getProfile(): Promise<ProfileResponse | null> {
   if (USE_MOCK_AUTH) {
-    return null;
+    const isLoggedIn = typeof window !== 'undefined' && window.localStorage.getItem(MOCK_AUTH_STORAGE_KEY) === '1';
+    return isLoggedIn ? MOCK_PROFILE : null;
   }
 
   try {

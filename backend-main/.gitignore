@@ -64,3 +64,20 @@ out/
 ### OS ###
 .DS_Store
 Thumbs.db
+
+backend-agent/.venv/
+backend-agent/__pycache__/
+backend-agent/.pytest_cache/
+*.pyc
+
+
+### Local config ###
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+src/main/resources/application-dev.yml
+src/main/resources/application-dev.yaml
+
+### Environment files ###
+.env
+.env.local
+.env.*.local

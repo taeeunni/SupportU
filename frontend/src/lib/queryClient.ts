@@ -43,7 +43,6 @@ export const queryKeys = {
     detail: (id: string) => ['policies', 'detail', id] as const,
     recommended: () => ['policies', 'recommended'] as const,
     bookmarked: () => ['policies', 'bookmarked'] as const,
-    scrapped: () => ['policies', 'scrapped'] as const,
   },
   checklist: {
     all: () => ['checklist'] as const,

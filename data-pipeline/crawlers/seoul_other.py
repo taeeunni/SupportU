@@ -1,5 +1,3 @@
-# crawlers/seoul_other.py
-
 import os
 import re
 import calendar
@@ -17,12 +15,11 @@ OUTPUT_NEED_CHECK_PATH = "output/raw/seoul_other_gyeonggi_need_check_raw.csv"
 OUTPUT_CLOSED_PATH = "output/raw/seoul_other_gyeonggi_closed_raw.csv"
 OUTPUT_OLLAMA_INPUT_PATH = "output/raw/seoul_other_gyeonggi_raw_all.csv"
 
-MAX_PAGES = 100
+MAX_PAGES = 50
 STOP_AFTER_EMPTY_POLICY_PAGES = 3
 
 CURRENT_YEAR = pd.Timestamp.today().year
 
-# 서울 청년포털 중앙정부/타지역 정책 중 "경기도" 기관 코드
 GYEONGGI_INST_CODE = "003002008"
 
 
@@ -54,12 +51,49 @@ ACTIVE_KEYWORDS = [
     "계속 운영",
 ]
 
+OPEN_ENDED_ACTIVE_KEYWORDS = [
+    "상시",
+    "상시모집",
+    "상시 모집",
+    "수시",
+    "수시모집",
+    "수시 모집",
+    "연중",
+    "연중모집",
+    "연중 모집",
+    "예산 소진",
+    "예산소진",
+    "예산 소진 시",
+    "예산 소진시",
+    "예산 소진 시까지",
+    "예산소진시까지",
+    "마감 시까지",
+    "마감시까지",
+    "소진 시까지",
+    "소진시까지",
+    "운영 중",
+    "운영중",
+    "계속 운영",
+]
+
 CLOSED_KEYWORDS = [
     "접수마감",
     "신청마감",
     "모집마감",
     "마감되었습니다",
     "종료되었습니다",
+    "접수 종료",
+    "신청 종료",
+    "모집 종료",
+]
+
+DEADLINE_KEYWORDS = [
+    "까지",
+    "마감",
+    "종료",
+    "접수마감",
+    "신청마감",
+    "모집마감",
     "접수 종료",
     "신청 종료",
     "모집 종료",
@@ -100,6 +134,13 @@ def normalize_date(year, month, day):
     return pd.Timestamp(year=int(year), month=int(month), day=int(day))
 
 
+def normalize_month_end(year, month):
+    year = int(year)
+    month = int(month)
+    last_day = calendar.monthrange(year, month)[1]
+    return pd.Timestamp(year=year, month=month, day=last_day)
+
+
 def extract_year_from_title(title: str):
     if not isinstance(title, str):
         return None
@@ -112,14 +153,28 @@ def extract_year_from_title(title: str):
     return int(match.group(1))
 
 
+def extract_year_from_policy_id(policy_id: str):
+    if not isinstance(policy_id, str):
+        return None
+
+    match = re.search(r"(20\d{2})", policy_id)
+
+    if not match:
+        return None
+
+    return int(match.group(1))
+
+
 def parse_date_ranges(text: str):
     ranges = []
 
-    # 예: 2026.4.1.(수) 10:00 ~ 2026.4.14.(화) 18:00
+    if not isinstance(text, str):
+        return ranges
+
     full_date_pattern = (
-        r"(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})"
-        r".{0,50}?[~\-]"
-        r".{0,50}?(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})"
+        r"(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})"
+        r".{0,80}?[~\-]"
+        r".{0,80}?(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})"
     )
 
     for match in re.finditer(full_date_pattern, text):
@@ -130,11 +185,10 @@ def parse_date_ranges(text: str):
         except Exception:
             pass
 
-    # 예: 2026.02.06 ~ 11.20
     same_year_date_pattern = (
-        r"(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]\s*(\d{1,2})"
-        r".{0,50}?[~\-]"
-        r".{0,50}?(\d{1,2})[.\-/월]\s*(\d{1,2})"
+        r"(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})"
+        r".{0,80}?[~\-]"
+        r".{0,80}?(\d{1,2})\s*[.\-/월]\s*(\d{1,2})"
     )
 
     for match in re.finditer(same_year_date_pattern, text):
@@ -146,11 +200,10 @@ def parse_date_ranges(text: str):
         except Exception:
             pass
 
-    # 예: 2026. 1. ~ 12.
     month_pattern = (
-        r"(\d{4})[.\-/년]\s*(\d{1,2})[.\-/월]?"
+        r"(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]?"
         r"\s*[~\-]\s*"
-        r"(\d{1,2})[.\-/월]?"
+        r"(\d{1,2})\s*[.\-/월]?"
     )
 
     for match in re.finditer(month_pattern, text):
@@ -166,11 +219,125 @@ def parse_date_ranges(text: str):
         except Exception:
             pass
 
-    return ranges
+    unique_ranges = []
+    seen = set()
+
+    for start, end in ranges:
+        key = (start.date().isoformat(), end.date().isoformat())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_ranges.append((start, end))
+
+    return unique_ranges
+
+
+def parse_single_dates(text: str):
+    dates = []
+
+    if not isinstance(text, str):
+        return dates
+
+    pattern = r"(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})"
+
+    for match in re.finditer(pattern, text):
+        try:
+            dates.append(normalize_date(match.group(1), match.group(2), match.group(3)))
+        except Exception:
+            pass
+
+    unique_dates = []
+    seen = set()
+
+    for date in dates:
+        key = date.date().isoformat()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_dates.append(date)
+
+    return unique_dates
+
+
+def parse_month_end_dates(text: str):
+    dates = []
+
+    if not isinstance(text, str):
+        return dates
+
+    full_date_spans = []
+
+    for match in re.finditer(r"\d{4}\s*[.\-/년]\s*\d{1,2}\s*[.\-/월]\s*\d{1,2}", text):
+        full_date_spans.append((match.start(), match.end()))
+
+    pattern = r"(\d{4})\s*[.\-/년]\s*(\d{1,2})\s*(?:월|[.\-/])"
+
+    for match in re.finditer(pattern, text):
+        start_pos = match.start()
+        end_pos = match.end()
+
+        if any(
+            span_start <= start_pos < span_end or span_start < end_pos <= span_end
+            for span_start, span_end in full_date_spans
+        ):
+            continue
+
+        try:
+            dates.append(normalize_month_end(match.group(1), match.group(2)))
+        except Exception:
+            pass
+
+    unique_dates = []
+    seen = set()
+
+    for date in dates:
+        key = date.date().isoformat()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_dates.append(date)
+
+    return unique_dates
+
+
+def parse_explicit_deadline_dates(text: str):
+    if not isinstance(text, str):
+        return []
+
+    dates = []
+
+    sentences = re.split(r"[\n\r。.!?]|(?<=다)\s+", text)
+
+    for sentence in sentences:
+        sentence = sentence.strip()
+
+        if not sentence:
+            continue
+
+        if not any(keyword in sentence for keyword in DEADLINE_KEYWORDS):
+            continue
+
+        dates.extend(parse_single_dates(sentence))
+        dates.extend(parse_month_end_dates(sentence))
+
+    unique_dates = []
+    seen = set()
+
+    for date in dates:
+        key = date.date().isoformat()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_dates.append(date)
+
+    return unique_dates
 
 
 def get_period_related_text(raw_text: str):
-    lines = raw_text.splitlines()
+    if not isinstance(raw_text, str):
+        return ""
+
+    lines = [line.strip() for line in raw_text.splitlines() if line.strip()]
 
     keywords = [
         "사업신청기간",
@@ -187,12 +354,49 @@ def get_period_related_text(raw_text: str):
         "지원 기간",
     ]
 
+    stop_keywords = [
+        "정책 유형",
+        "주관 기관",
+        "정책 소개",
+        "지원 내용",
+        "지원규모",
+        "관련 사이트",
+        "신청자격",
+        "신청방법",
+        "기타",
+    ]
+
     chunks = []
 
     for i, line in enumerate(lines):
         if any(keyword in line for keyword in keywords):
-            chunk = "\n".join(lines[i:i + 6])
-            chunks.append(chunk)
+            chunk_lines = []
+
+            for next_line in lines[i:i + 12]:
+                if chunk_lines and next_line in stop_keywords:
+                    break
+                chunk_lines.append(next_line)
+
+            chunks.append("\n".join(chunk_lines))
+
+    if chunks:
+        return "\n".join(chunks)
+
+    compact_text = " ".join(lines)
+
+    for keyword in keywords:
+        if keyword not in compact_text:
+            continue
+
+        start = compact_text.find(keyword)
+        end = len(compact_text)
+
+        for stop_keyword in stop_keywords:
+            stop_pos = compact_text.find(stop_keyword, start + len(keyword))
+            if stop_pos != -1:
+                end = min(end, stop_pos)
+
+        chunks.append(compact_text[start:end])
 
     if chunks:
         return "\n".join(chunks)
@@ -215,11 +419,24 @@ def has_active_keyword(text: str):
     return any(keyword in text for keyword in ACTIVE_KEYWORDS)
 
 
+def has_open_ended_active_keyword(text: str):
+    return any(keyword in text for keyword in OPEN_ENDED_ACTIVE_KEYWORDS)
+
+
 def has_closed_keyword(text: str):
     return any(keyword in text for keyword in CLOSED_KEYWORDS)
 
 
-def classify_policy(title: str, raw_text: str):
+def is_old_year_without_clear_current_signal(title_year, policy_id_year):
+    years = [year for year in [title_year, policy_id_year] if year is not None]
+
+    if not years:
+        return False
+
+    return max(years) < CURRENT_YEAR
+
+
+def classify_policy(title: str, raw_text: str, policy_id: str = ""):
     """
     반환값:
     - active: 현재 진행 중으로 판단
@@ -230,48 +447,93 @@ def classify_policy(title: str, raw_text: str):
 
     period_text = get_period_related_text(raw_text)
     period_text = remove_birth_lines(period_text)
+    raw_text_without_birth = remove_birth_lines(raw_text)
 
     combined_text = f"{title}\n{raw_text}\n{period_text}"
 
     title_year = extract_year_from_title(title)
+    policy_id_year = extract_year_from_policy_id(policy_id)
 
-    # 1. 기간 주변 날짜가 있으면 날짜를 최우선으로 판단
     date_ranges = parse_date_ranges(period_text)
 
+    if not date_ranges:
+        date_ranges = parse_date_ranges(raw_text_without_birth)
+
     if date_ranges:
+        active_ranges = []
+        future_ranges = []
+
         for start, end in date_ranges:
             if start <= base_date <= end:
-                return "active", f"date_range_active:{start.date()}~{end.date()}"
+                active_ranges.append((start, end))
+            elif start > base_date:
+                future_ranges.append((start, end))
 
-        return "closed", "date_range_expired"
+        if active_ranges:
+            start, end = active_ranges[0]
+            return "active", f"date_range_active:{start.date()}~{end.date()}"
 
-    # 2. 제목 연도가 현재 연도보다 과거면 closed
-    # 단, 기간 주변에 상시/연중/예산소진 표현이 있으면 active 가능
-    if title_year is not None and title_year < CURRENT_YEAR:
-        if has_active_keyword(period_text):
-            return "active", f"past_title_year_but_period_active_keyword:{title_year}"
+        latest_end = max(end for _, end in date_ranges)
 
-        return "closed", f"past_title_year:{title_year}"
+        if latest_end < base_date:
+            return "closed", f"date_range_expired:{latest_end.date()}"
 
-    # 3. 날짜는 없지만 기간 주변에 상시/수시/연중/예산소진 표현이 있으면 active
-    if has_active_keyword(period_text):
+        if future_ranges:
+            start, end = future_ranges[0]
+            return "need_check", f"future_date_range:{start.date()}~{end.date()}"
+
+    deadline_dates = parse_explicit_deadline_dates(period_text)
+
+    if not deadline_dates:
+        deadline_dates = parse_explicit_deadline_dates(raw_text_without_birth)
+
+    if deadline_dates:
+        latest_deadline = max(deadline_dates)
+
+        if latest_deadline < base_date:
+            return "closed", f"explicit_deadline_expired:{latest_deadline.date()}"
+
+        if has_open_ended_active_keyword(period_text) or has_open_ended_active_keyword(combined_text):
+            return "active", f"explicit_deadline_active:{latest_deadline.date()}"
+
+        return "need_check", f"explicit_deadline_future:{latest_deadline.date()}"
+
+    if has_closed_keyword(period_text):
+        return "closed", "period_closed_keyword"
+
+    single_dates = parse_single_dates(period_text)
+
+    if not single_dates:
+        single_dates = parse_single_dates(raw_text_without_birth)
+
+    if single_dates and has_open_ended_active_keyword(period_text):
+        latest_date = max(single_dates)
+
+        if latest_date.year >= CURRENT_YEAR - 1:
+            return "active", f"open_ended_active:{latest_date.date()}"
+
+        return "need_check", f"old_open_ended_date_need_check:{latest_date.date()}"
+
+    if is_old_year_without_clear_current_signal(title_year, policy_id_year):
+        if has_open_ended_active_keyword(period_text):
+            return "need_check", f"past_year_but_period_active_keyword:{max(y for y in [title_year, policy_id_year] if y is not None)}"
+
+        return "closed", f"past_year:{max(y for y in [title_year, policy_id_year] if y is not None)}"
+
+    if has_open_ended_active_keyword(period_text):
         return "active", "period_active_keyword"
 
-    # 4. 본문 전체에 마감/종료 표현이 있으면 closed
     if has_closed_keyword(combined_text):
         return "closed", "closed_keyword"
 
-    # 5. 현재 연도 제목인데 날짜가 없으면 확인 필요
-    if title_year == CURRENT_YEAR:
-        return "need_check", f"current_title_year_no_clear_period:{title_year}"
+    if title_year == CURRENT_YEAR or policy_id_year == CURRENT_YEAR:
+        return "need_check", f"current_year_no_clear_period:{title_year or policy_id_year}"
 
-    # 6. 제목에 연도가 없으면 확인 필요
-    if title_year is None:
+    if title_year is None and policy_id_year is None:
         return "need_check", "no_year_no_clear_period"
 
-    # 7. 미래 연도면 확인 필요
-    if title_year > CURRENT_YEAR:
-        return "need_check", f"future_title_year:{title_year}"
+    if (title_year and title_year > CURRENT_YEAR) or (policy_id_year and policy_id_year > CURRENT_YEAR):
+        return "need_check", f"future_year:{title_year or policy_id_year}"
 
     return "need_check", "no_clear_period"
 
@@ -337,7 +599,7 @@ def fetch_policy_detail(item: dict):
     html = fetch_html(item["detail_url"])
     raw_text = html_to_text(html)
 
-    status, reason = classify_policy(item["title"], raw_text)
+    status, reason = classify_policy(item["title"], raw_text, item["policy_id"])
 
     return {
         "source_site": SOURCE_SITE,
@@ -424,7 +686,6 @@ def crawl_seoul_other_gyeonggi():
         encoding="utf-8-sig"
     )
 
-    # Ollama 추출용: active + need_check를 합쳐서 저장
     final_rows = active_rows + need_check_rows
 
     pd.DataFrame(final_rows).to_csv(

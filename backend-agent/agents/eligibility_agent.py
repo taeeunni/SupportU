@@ -15,7 +15,6 @@ from langgraph.graph import StateGraph, START, END
 load_dotenv()
 # LangGraph가 인식할 수 있도록 환경 변수에 강제 주입 (Mindlogic 게이트웨이 사용)
 os.environ["ANTHROPIC_API_KEY"] = os.getenv("ANTHROPIC_AUTH_TOKEN", "sk-...")
-os.environ["ANTHROPIC_BASE_URL"] = "https://factchat-cloud.mindlogic.ai/v1/gateway/claude"
 
 # ==========================================
 # 1. State 정의

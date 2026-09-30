@@ -1,13 +1,22 @@
+import { useMemo } from "react";
+import { useSearchParams } from "react-router";
 import { initiateGoogleLogin } from "../../api/auth";
 import { P } from "./common/Typography";
 
-interface LoginPageProps {
-  onNavigate: () => void;
-  onSignup: () => void;
-}
+export function LoginPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const loginError = searchParams.get("error");
+  const errorDescription = searchParams.get("error_description") ?? searchParams.get("message");
+  const oauthErrorMessage = useMemo(() => {
+    if (!loginError) return null;
+    if (loginError === "access_denied") return "구글 로그인이 취소되었습니다.";
+    return errorDescription ?? "구글 로그인에 실패했습니다. 다시 시도해주세요.";
+  }, [errorDescription, loginError]);
 
-export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
   const handleGoogleLogin = () => {
+    if (loginError) {
+      setSearchParams({}, { replace: true });
+    }
     // Spring Boot OAuth2 엔드포인트로 리다이렉트 (Vite proxy → localhost:8080)
     initiateGoogleLogin();
   };
@@ -146,6 +155,47 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
               소셜 계정으로 간편하게 시작하세요
             </P>
 
+            {oauthErrorMessage && (
+              <div
+                className="flex items-start gap-3 rounded-xl p-4"
+                role="alert"
+                aria-live="polite"
+                style={{
+                  backgroundColor: "rgba(186,26,26,0.08)",
+                  border: "1px solid rgba(186,26,26,0.18)",
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="flex-shrink-0 mt-0.5">
+                  <circle cx="9" cy="9" r="8" stroke="#ba1a1a" strokeWidth="1.5" />
+                  <path d="M9 5V9.5M9 12.5V13" stroke="#ba1a1a" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+                <div className="flex-1">
+                  <P style={{ fontSize: 14, fontWeight: 700, color: "#ba1a1a", marginBottom: 4 }}>
+                    로그인을 완료하지 못했어요
+                  </P>
+                  <P style={{ fontSize: 13, color: "#3c4947", lineHeight: 1.5 }}>
+                    {oauthErrorMessage}
+                  </P>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchParams({}, { replace: true })}
+                  aria-label="로그인 오류 메시지 닫기"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#64748b",
+                    cursor: "pointer",
+                    fontSize: 18,
+                    lineHeight: 1,
+                    padding: 0,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
             {/* Google Login Button */}
             <button
               type="button"
@@ -172,7 +222,7 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
             {/* Google Signup Button */}
             <button
               type="button"
-              onClick={onSignup}
+              onClick={handleGoogleLogin}
               className="w-full py-4 rounded-xl text-base font-semibold transition-all hover:shadow-lg active:scale-98 flex items-center justify-center gap-3"
               style={{
                 backgroundColor: "white",

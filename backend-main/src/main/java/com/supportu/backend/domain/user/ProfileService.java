@@ -2,6 +2,7 @@ package com.supportu.backend.domain.user;
 
 import com.supportu.backend.api.profile.ProfileRequest;
 import com.supportu.backend.api.profile.ProfileResponse;
+import com.supportu.backend.domain.orchestrator.OrchestratorAsyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ public class ProfileService {
 
     private final UserRepository userRepository;
     private final UserProfileRepository userProfileRepository;
+    private final OrchestratorAsyncService orchestratorAsyncService;
 
     @Transactional
     public ProfileResponse getMyProfile(OAuth2User oauth2User) {
@@ -59,6 +61,8 @@ public class ProfileService {
                 request.asset(),
                 request.preferredCategories()
         );
+
+        orchestratorAsyncService.precomputeEligibility(user.getUid());
 
         return ProfileResponse.from(profile);
     }

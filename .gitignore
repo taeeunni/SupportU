@@ -53,6 +53,7 @@ temp/
 ### Backend local config ###
 **/application-local.yml
 **/application-*.local.yml
+**/pnpm-lock.yaml
 **/.env
 **/.env.*
 
@@ -70,3 +71,17 @@ out/
 frontend/dist/
 frontend/.vite/
 *.tsbuildinfo
+
+# Python virtual environments
+.venv/
+venv/
+env/
+backend-agent/.venv/
+**/.venv/
+**/venv/
+backend-agent/.venv/
+backend-agent/**/__pycache__/
+backend-agent/.pytest_cache/
+*.pyc
+backend-agent/.venv_old/
+**/.venv_old/

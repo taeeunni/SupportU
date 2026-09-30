@@ -1,5 +1,9 @@
+﻿import JSONbig from 'json-bigint';
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+const jsonParser = JSONbig({ storeAsString: true });
 
 // HTTP 응답을 받았으나 상태 코드가 실패인 경우 (4xx, 5xx)
 export class ApiError extends Error {
@@ -45,7 +49,8 @@ async function parseBody(res: Response): Promise<unknown> {
   const contentType = res.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
     try {
-      return await res.json();
+      const text = await res.text();
+      return jsonParser.parse(text);
     } catch {
       return null;
     }
@@ -114,3 +119,5 @@ export const apiClient = {
   delete: <T>(path: string, opts?: Omit<RequestOptions, 'body'>) =>
     request<T>(path, { ...opts, method: 'DELETE' }),
 };
+
+

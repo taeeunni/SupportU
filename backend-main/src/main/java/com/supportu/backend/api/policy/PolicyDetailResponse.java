@@ -12,11 +12,12 @@ public record PolicyDetailResponse(
         String duration,
         String target,
         String method,
-        List<EligibilityItem> eligibility
+        List<EligibilityItem> eligibility,
+        String detailUrl
 ) {
     public static PolicyDetailResponse from(Policy policy) {
         return new PolicyDetailResponse(
-                firstNonBlank(policy.getSummary(), "상세 설명 확인 필요"),
+                firstNonBlank(policy.getSupportContent(), "지원 내용 확인 필요"),
                 parseBenefits(policy.getSupportContent()),
                 firstNonBlank(policy.getSupportContent(), "지원금 확인 필요"),
                 firstNonBlank(policy.getSupportContent(), "지원 범위 확인 필요"),
@@ -28,7 +29,8 @@ public record PolicyDetailResponse(
                         new EligibilityItem("지역", toRegionCondition(policy)),
                         new EligibilityItem("소득", firstNonBlank(policy.getIncome(), "제한 없음 또는 확인 필요")),
                         new EligibilityItem("취업 상태", firstNonBlank(policy.getEmployment(), "제한 없음 또는 확인 필요"))
-                )
+                ),
+                policy.getDetailUrl()
         );
     }
 

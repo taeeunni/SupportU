@@ -85,8 +85,11 @@ public class UserCalendarEvent {
         this.applyStatus = applyStatus;
 
         if ("applied".equalsIgnoreCase(applyStatus)
+                || "benefited".equalsIgnoreCase(applyStatus)
                 || "apply_now".equalsIgnoreCase(applyStatus)
-                || "지원 완료".equals(applyStatus)) {
+                || "applynow".equalsIgnoreCase(applyStatus)
+                || "지원 완료".equals(applyStatus)
+                || "수혜 완료".equals(applyStatus)) {
             this.appliedAt = LocalDateTime.now();
         }
     }

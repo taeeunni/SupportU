@@ -4,7 +4,7 @@ import { create } from 'zustand';
 // 페이지 간 이동 시에도 유지하고 싶은 사용자 선호도는 store로 둔다.
 
 export type CategoryFilter = '전체' | '주거' | '일자리' | '복지';
-export type SortOption = '마감일 임박순' | '최신순' | '매칭도 높은순';
+export type SortOption = '마감일 임박순' | '최신순';
 
 interface PolicyFiltersState {
   category: CategoryFilter;

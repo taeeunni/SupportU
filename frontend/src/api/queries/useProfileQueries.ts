@@ -30,6 +30,8 @@ export function useSaveProfile() {
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.profile.me(), data);
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.policies.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.policies.recommended() });
     },
   });
 }

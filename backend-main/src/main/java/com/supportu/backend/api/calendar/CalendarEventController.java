@@ -4,6 +4,7 @@ import com.supportu.backend.domain.calendar.GoogleCalendarService;
 import com.supportu.backend.domain.calendar.GoogleCalendarService.GoogleCalendarResult;
 import com.supportu.backend.domain.calendar.UserCalendarEvent;
 import com.supportu.backend.domain.calendar.UserCalendarEventRepository;
+import com.supportu.backend.domain.orchestrator.OrchestratorService;
 import com.supportu.backend.domain.policy.Policy;
 import com.supportu.backend.domain.policy.PolicyRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,7 +27,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @RestController
@@ -35,6 +40,7 @@ public class CalendarEventController {
     private final UserCalendarEventRepository calendarEventRepository;
     private final PolicyRepository policyRepository;
     private final GoogleCalendarService googleCalendarService;
+    private final OrchestratorService orchestratorService;
 
     @GetMapping
     public List<CalendarEventResponse> getMyCalendarEvents(
@@ -101,6 +107,33 @@ public class CalendarEventController {
         return CalendarEventResponse.from(savedEvent, policy);
     }
 
+    @PutMapping("/{cid}/status")
+    @Transactional
+    public CalendarEventResponse updateCalendarEventStatus(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long cid,
+            @RequestBody Map<String, String> request
+    ) {
+        String uid = getGoogleUid(oauth2User);
+        String applyStatus = normalizeApplyStatus(request.get("applyStatus"));
+
+        UserCalendarEvent calendarEvent = calendarEventRepository.findByCidAndUid(cid, uid)
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "일정을 찾을 수 없습니다."));
+
+        String previousApplyStatus = normalizeApplyStatus(calendarEvent.getApplyStatus());
+
+        calendarEvent.updateApplyStatus(applyStatus);
+
+        if (!"benefited".equals(previousApplyStatus)
+                && "benefited".equals(applyStatus)) {
+            orchestratorService.totalBenefit(uid);
+        }
+
+        Policy policy = policyRepository.findById(calendarEvent.getPolicyId()).orElse(null);
+
+        return CalendarEventResponse.from(calendarEvent, policy);
+    }
+
     @DeleteMapping("/{cid}")
     @Transactional
     public void deleteCalendarEvent(
@@ -115,6 +148,35 @@ public class CalendarEventController {
 
         googleCalendarService.deleteEvent(authorizedClient, calendarEvent.getGid());
         calendarEventRepository.delete(calendarEvent);
+    }
+
+    private String normalizeApplyStatus(String applyStatus) {
+        if (applyStatus == null || applyStatus.isBlank()) {
+            throw new ResponseStatusException(BAD_REQUEST, "applyStatus 값이 없습니다.");
+        }
+
+        if ("pending".equalsIgnoreCase(applyStatus)) {
+            return "pending";
+        }
+
+        if ("apply_now".equalsIgnoreCase(applyStatus)
+                || "applynow".equalsIgnoreCase(applyStatus)
+                || "지원 필요".equals(applyStatus)) {
+            return "apply_now";
+        }
+
+        if ("applied".equalsIgnoreCase(applyStatus)
+                || "지원 완료".equals(applyStatus)
+                || "결과 대기".equals(applyStatus)) {
+            return "applied";
+        }
+
+        if ("benefited".equalsIgnoreCase(applyStatus)
+                || "수혜 완료".equals(applyStatus)) {
+            return "benefited";
+        }
+
+        throw new ResponseStatusException(BAD_REQUEST, "지원 상태 값이 올바르지 않습니다.");
     }
 
     private LocalDateTime resolveEventStartAt(Policy policy) {

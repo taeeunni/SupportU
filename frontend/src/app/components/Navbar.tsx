@@ -1,6 +1,7 @@
 import imgUserAvatar from "figma:asset/d53360f080d65508be933ce1738e47c95909ed9e.png";
+import { useRecommendedPolicies } from "../../api/queries/usePolicyQueries";
 
-type Page = "home" | "policies" | "mypage" | "settings";
+type Page = "home" | "policies" | "mypage" ;
 
 interface NavbarProps {
   currentPage: Page;
@@ -8,6 +9,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ currentPage, onNavigate }: NavbarProps) {
+  const { data: recommendedPolicies } = useRecommendedPolicies();
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md border-b"
@@ -30,9 +32,8 @@ export function Navbar({ currentPage, onNavigate }: NavbarProps) {
         <nav className="flex items-center gap-8">
           {[
             { id: "home" as Page, label: "홈" },
-            { id: "policies" as Page, label: "공고", badge: "12건" },
+            { id: "policies" as Page, label: "공고", badge: recommendedPolicies?.length ? `${recommendedPolicies.length}건` : undefined },
             { id: "mypage" as Page, label: "마이페이지" },
-            { id: "settings" as Page, label: "설정" },
           ].map((item) => (
             <button
               key={item.id}

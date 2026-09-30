@@ -3736,7 +3736,7 @@ export default function Component({ className }: { className?: string }) {
                       <div aria-hidden="true" className="absolute border border-[rgba(79,209,197,0.2)] border-solid inset-0 pointer-events-none rounded-[9999px]" />
                       <div className="bg-clip-padding border-0 border-[transparent] border-solid content-stretch flex flex-col items-start px-[15px] py-[7px] relative size-full">
                         <div className="flex flex-col font-['Pretendard:Semi_Bold',sans-serif] justify-center leading-[0] not-italic relative shrink-0 text-[#006a63] text-[12px] whitespace-nowrap">
-                          <p className="leading-[16px]">AI가 매칭했어요</p>
+                          <p className="leading-[16px]">추천 공고</p>
                         </div>
                       </div>
                     </div>
@@ -3766,7 +3766,7 @@ export default function Component({ className }: { className?: string }) {
                                     <div className="bg-[#006a63] drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)] relative rounded-[6px] self-stretch shrink-0" data-name="Background+Shadow">
                                       <div className="content-stretch flex flex-col items-start px-[10px] py-[4px] relative size-full">
                                         <div className="flex flex-col font-['Pretendard:Semi_Bold',sans-serif] justify-center leading-[0] not-italic relative shrink-0 text-[12px] text-white whitespace-nowrap">
-                                          <p className="leading-[16px]">97% 매칭</p>
+                                          <p className="leading-[16px]">추천</p>
                                         </div>
                                       </div>
                                     </div>
@@ -3862,7 +3862,7 @@ export default function Component({ className }: { className?: string }) {
                                     <div className="bg-[#006a63] drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)] relative rounded-[6px] self-stretch shrink-0" data-name="Background+Shadow">
                                       <div className="content-stretch flex flex-col items-start px-[10px] py-[4px] relative size-full">
                                         <div className="flex flex-col font-['Pretendard:Semi_Bold',sans-serif] justify-center leading-[0] not-italic relative shrink-0 text-[12px] text-white whitespace-nowrap">
-                                          <p className="leading-[16px]">100% 매칭</p>
+                                          <p className="leading-[16px]">추천</p>
                                         </div>
                                       </div>
                                     </div>
@@ -3952,7 +3952,7 @@ export default function Component({ className }: { className?: string }) {
                                     <div className="bg-[#006a63] drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)] relative rounded-[6px] self-stretch shrink-0" data-name="Background+Shadow">
                                       <div className="content-stretch flex flex-col items-start px-[10px] py-[4px] relative size-full">
                                         <div className="flex flex-col font-['Pretendard:Semi_Bold',sans-serif] justify-center leading-[0] not-italic relative shrink-0 text-[12px] text-white whitespace-nowrap">
-                                          <p className="leading-[16px]">92% 매칭</p>
+                                          <p className="leading-[16px]">추천</p>
                                         </div>
                                       </div>
                                     </div>
@@ -4047,7 +4047,7 @@ export default function Component({ className }: { className?: string }) {
                                     <div className="bg-[#006a63] drop-shadow-[0px_1px_1px_rgba(0,0,0,0.05)] relative rounded-[6px] self-stretch shrink-0" data-name="Background+Shadow">
                                       <div className="content-stretch flex flex-col items-start px-[10px] py-[4px] relative size-full">
                                         <div className="flex flex-col font-['Pretendard:Semi_Bold',sans-serif] justify-center leading-[0] not-italic relative shrink-0 text-[12px] text-white whitespace-nowrap">
-                                          <p className="leading-[16px]">88% 매칭</p>
+                                          <p className="leading-[16px]">추천</p>
                                         </div>
                                       </div>
                                     </div>

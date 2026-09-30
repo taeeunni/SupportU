@@ -5,6 +5,7 @@ import com.supportu.backend.domain.bookmark.BookmarkRepository;
 import com.supportu.backend.domain.policy.Policy;
 import com.supportu.backend.domain.policy.PolicyRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,8 +17,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
@@ -28,14 +32,51 @@ public class PolicyController {
 
     private final PolicyRepository policyRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @GetMapping("/recommended")
-    public List<PolicyResponse> getRecommendedPolicies() {
-        return policyRepository.findAll().stream()
-                .sorted(Comparator.comparing(policy -> policy.getPend() == null))
-                .limit(3)
-                .map(PolicyResponse::from)
+    public List<PolicyResponse> getRecommendedPolicies(
+            @AuthenticationPrincipal OAuth2User oauth2User
+    ) {
+        String uid = getGoogleUid(oauth2User);
+
+        List<String> recommendedPolicyIds = jdbcTemplate.query(
+                """
+                SELECT policy_id
+                FROM eligibility_results
+                WHERE uid = ?
+                  AND is_eligible = true
+                ORDER BY policy_id ASC
+                """,
+                (rs, rowNum) -> rs.getString("policy_id"),
+                uid
+        );
+
+
+        recommendedPolicyIds = recommendedPolicyIds.stream()
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
                 .toList();
+
+
+        if (recommendedPolicyIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Policy> policiesById = policyRepository.findAllById(recommendedPolicyIds)
+                .stream()
+                .collect(Collectors.toMap(Policy::getPolicyId, Function.identity()));
+
+        List<PolicyResponse> responses = recommendedPolicyIds.stream()
+                .map(policiesById::get)
+                .filter(policy -> policy != null)
+                .map(policy -> PolicyResponse.from(
+                        policy,
+                        bookmarkRepository.existsByUidAndPolicyId(uid, policy.getPolicyId())
+                ))
+                .toList();
+
+        return responses;
     }
 
     @GetMapping
@@ -70,19 +111,6 @@ public class PolicyController {
                 .map(bookmark -> policyRepository.findById(bookmark.getPolicyId()).orElse(null))
                 .filter(policy -> policy != null)
                 .map(policy -> PolicyResponse.from(policy, true))
-                .toList();
-    }
-
-    @GetMapping("/scrapped")
-    public List<ScrappedPolicyResponse> getScrappedPolicies(
-            @AuthenticationPrincipal OAuth2User oauth2User
-    ) {
-        String uid = getGoogleUid(oauth2User);
-
-        return bookmarkRepository.findByUidOrderByCreatedAtDesc(uid).stream()
-                .map(bookmark -> policyRepository.findById(bookmark.getPolicyId()).orElse(null))
-                .filter(policy -> policy != null)
-                .map(ScrappedPolicyResponse::from)
                 .toList();
     }
 

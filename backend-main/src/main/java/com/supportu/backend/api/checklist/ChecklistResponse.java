@@ -7,41 +7,43 @@ import java.time.temporal.ChronoUnit;
 
 public record ChecklistResponse(
         long id,
+        String policyId,
+        String policyName,
+        String documentName,
+        String category,
+        String deadlineText,
+        boolean checked,
         String label,
         String deadline,
-        String category,
         String categoryColor,
         String categoryBg,
         String deadlineColor,
         String deadlineBg,
         boolean done
 ) {
-    public static ChecklistResponse from(Policy policy, String documentName, boolean done) {
+    public static ChecklistResponse from(long id, Policy policy, boolean checked) {
+        String policyName = firstNonBlank(policy.getTitle(), policy.getPolicyTitle());
+        String taskName = policyName + " 신청";
         String category = toKoreanCategory(policy.getCategory());
-        String deadline = toDeadline(policy);
-        boolean urgent = deadline.equals("D-day") || deadline.equals("D-1");
+        String deadlineText = toDeadline(policy);
+        boolean urgent = deadlineText.equals("D-day") || deadlineText.equals("D-1");
 
         return new ChecklistResponse(
-                createStableId(policy.getPolicyId(), documentName),
-                createLabel(policy, documentName),
-                deadline,
+                id,
+                policy.getPolicyId(),
+                policyName,
+                taskName,
                 category,
+                deadlineText,
+                checked,
+                taskName,
+                deadlineText,
                 categoryColor(category),
                 categoryBg(category),
                 urgent ? "#ba1a1a" : "#f97316",
                 urgent ? "rgba(186,26,26,0.1)" : "#fff7ed",
-                done
+                checked
         );
-    }
-
-    private static long createStableId(String policyId, String documentName) {
-        String raw = policyId + ":" + documentName;
-        return Math.abs((long) raw.hashCode());
-    }
-
-    private static String createLabel(Policy policy, String documentName) {
-        String title = firstNonBlank(policy.getTitle(), policy.getPolicyTitle());
-        return title + " - " + documentName;
     }
 
     private static String toDeadline(Policy policy) {

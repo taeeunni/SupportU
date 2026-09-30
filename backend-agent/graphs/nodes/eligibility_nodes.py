@@ -1,7 +1,6 @@
 import json
-import time
 import os
-
+import asyncio
 from langchain_core.messages import HumanMessage
 
 from db.supabase_client import supabase
@@ -14,7 +13,7 @@ from agents.eligibility_agent import (
 # 테스트 정책 설정
 # ==========================================
 
-TEST_MODE = True
+TEST_MODE = False
 
 TEST_POLICY_IDS = [
 
@@ -61,6 +60,15 @@ def load_user_node(state):
         uid
     ).execute()
 
+    if not user_res.data:
+        return {
+            **state,
+            "user_profile": None,
+            "policies": [],
+            "eligible_records": [],
+            "error": "user_profile not found"
+        }
+
     return {
         **state,
         "user_profile": user_res.data[0]
@@ -69,26 +77,33 @@ def load_user_node(state):
 
 def filter_policy_node(state):
     print("[NODE] filter_policy_node")
+
+    if state.get("error"):
+        return state
+
     user = state["user_profile"]
 
     city = user.get("city", "")
-    age = user.get("age", 0)
+    age = user.get("age") or 0
+    user_scity = user.get("scity", "")
 
     query = supabase.table(
         "policies"
     ).select(
-        "policy_id, title, summary, eligibility, amin, amax, region"
-    ).in_(
-        "region",
-        [city, "전국"]
+        "policy_id, title, eligibility, amin, amax, region, scity"
     )
 
-    # 테스트 정책만 조회
     if TEST_MODE:
-
+        print("[GET] get test policy data")
         query = query.in_(
             "policy_id",
             TEST_POLICY_IDS
+        )
+    else:
+        print("[GET] get real policy data")
+        query = query.in_(
+            "region",
+            [city, "전국"]
         )
 
     policies_res = query.execute()
@@ -97,15 +112,20 @@ def filter_policy_node(state):
 
     for policy in policies_res.data:
 
+        policy_scity = policy.get("scity")
+
+        if policy_scity and policy_scity != user_scity:
+            continue
+
         amin = int(
-        float(
+            float(
                 policy.get("amin") or 0
             )
         )
 
         amax = int(
-        float(
-            policy.get("amax") or 99
+            float(
+                policy.get("amax") or 99
             )
         )
 
@@ -120,13 +140,20 @@ def filter_policy_node(state):
 
 def eligibility_worker_node(state):
     print("[NODE] eligibility_worker_node")
+
+    if state.get("error"):
+        return state
+
     user = state["user_profile"]
 
-    results = []
+    async def process_policy(
+        semaphore,
+        policy
+    ):
 
-    for policy in state["policies"]:
+        async with semaphore:
 
-        human_msg = f'''
+            human_msg = f'''
 <user_profile>
 {json.dumps(user, ensure_ascii=False)}
 </user_profile>
@@ -136,74 +163,102 @@ def eligibility_worker_node(state):
 </policy_criteria>
 '''
 
-        result = eligibility_workflow.invoke({
+            result = await eligibility_workflow.ainvoke({
 
-            "messages": [
-                HumanMessage(content=human_msg)
-            ],
+                "messages": [
+                    HumanMessage(content=human_msg)
+                ],
 
-            "user_id": user["uid"],
+                "user_id": user["uid"],
 
-            "policy_id": policy["policy_id"]
-        })
+                "policy_id": policy["policy_id"]
+            })
 
-        output = result["messages"][-1].content
+            output = result["messages"][-1].content
 
-        # markdown fence 제거
-        clean_output = (
-            output
-            .replace("```json", "")
-            .replace("```", "")
-            .strip()
-        )
-
-        try:
-
-            parsed = json.loads(
-                clean_output
+            # markdown fence 제거
+            clean_output = (
+                output
+                .replace("```json", "")
+                .replace("```", "")
+                .strip()
             )
 
-        except Exception as e:
+            try:
 
-            print(
-                "[ERROR] eligibility parsing:",
-                e
-            )
-
-            continue
-
-
-        is_eligible = parsed.get(
-            "is_eligible",
-            False
-        )
-
-        reason = parsed.get(
-            "reason",
-            ""
-        )
-
-        results.append({
-
-            "uid":
-                user["uid"],
-
-            "policy_id":
-                policy["policy_id"],
-
-            "is_eligible":
-                is_eligible,
-
-            # eligible이면 NULL
-            "unmet_conditions":
-                (
-                    None
-                    if is_eligible
-                    else reason
+                parsed = json.loads(
+                    clean_output
                 )
-        })
 
-        time.sleep(0.2)
+            except Exception as e:
+
+                print(
+                    "[ERROR] eligibility parsing:",
+                    e
+                )
+
+                return None
+
+
+            is_eligible = parsed.get(
+                "is_eligible",
+                False
+            )
+
+            reason = parsed.get(
+                "reason",
+                ""
+            )
+
+            return {
+
+                "uid":
+                    user["uid"],
+
+                "policy_id":
+                    policy["policy_id"],
+
+                "is_eligible":
+                    is_eligible,
+
+                # eligible이면 NULL
+                "unmet_conditions":
+                    (
+                        None
+                        if is_eligible
+                        else reason
+                    )
+            }
+
+
+    async def run_parallel():
+
+        semaphore = asyncio.Semaphore(5)
+
+        tasks = [
+
+            process_policy(
+                semaphore,
+                policy
+            )
+
+            for policy in state["policies"]
+        ]
+
+        results = await asyncio.gather(
+            *tasks
+        )
+
+        return [
+
+            r for r in results
+            if r is not None
+        ]
+
+
+    results = asyncio.run(
+        run_parallel()
+    )
 
     return {
         **state,
@@ -213,21 +268,27 @@ def eligibility_worker_node(state):
 
 def persist_eligibility_node(state):
     print("persist_eligibility_node")
+
+    if state.get("error"):
+        print("[ERROR] skip persist:", state.get("error"))
+        return state
+
     uid = state["uid"]
+    eligible_records = state.get("eligible_records", [])
 
-    supabase.table(
-        "eligibility_results"
-    ).delete().eq(
-        "uid",
-        uid
-    ).execute()
+    if eligible_records:
+        delete_result = supabase.table(
+            "eligibility_results"
+        ).delete().eq(
+            "uid",
+            uid
+        ).execute()
 
-    if state["eligible_records"]:
 
-        supabase.table(
+        insert_result = supabase.table(
             "eligibility_results"
         ).insert(
-            state["eligible_records"]
+            eligible_records
         ).execute()
 
     return state

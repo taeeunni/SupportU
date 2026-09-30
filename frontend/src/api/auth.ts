@@ -29,6 +29,11 @@ const MOCK_USER: AuthUser = {
   },
 };
 
+function getBackendBaseUrl(): string {
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  return apiBaseUrl.replace(/\/api\/?$/, '');
+}
+
 function isMockAuthenticated(): boolean {
   if (typeof window === 'undefined') return false;
   return window.localStorage.getItem(MOCK_AUTH_STORAGE_KEY) === '1';
@@ -88,7 +93,7 @@ export function initiateGoogleLogin(): void {
     window.location.href = '/';
     return;
   }
-  window.location.href = '/oauth2/authorization/google';
+  window.location.href = `${getBackendBaseUrl()}/oauth2/authorization/google`;
 }
 
 /**
